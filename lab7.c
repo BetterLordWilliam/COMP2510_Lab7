@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // A01372608
 
@@ -24,7 +25,7 @@ FILE *out;
 void printErrorExit();
 void innitList(ListNode *head, int *option);
 void basicPrint(ListNode *head);
-void insertStudent(Student *newStudent);
+void insertStudent(ListNode *head, Student *newStudent);
 
 int checkName(char *name);
 int checkA_Num(char *aNum);
@@ -34,8 +35,8 @@ int checkGrade(int grade);
  * TODO
  * - Input error cases
  * |---- missing name (first or last) X
- * |---- name with non-alphanumeric characters (excluding dash and hiphen)
- * |---- missing a_num OR incorrect a_num format (function)
+ * |---- name with non-alphanumeric characters (excluding dash and hiphen) X
+ * |---- missing a_num OR incorrect a_num format (function) X
  * |---- missing either midterm or final score X
  * |---- grade not in range (0 --> 100) X
  * - Insert function, insert by last name > first name > a_num > midterm > final
@@ -63,14 +64,12 @@ int main(int argc, char* argv[]){
     out = fopen(argv[2], "w");
 
     // Important variables
-    int studentCount = 0, *studentCountP;
     int option = 0, *optionP;
 
-    ListNode *head = malloc(sizeof(struct listNode));  // Actual list head
-    head->tStudent = NULL;                      // make NULL
-    head->next = NULL;                          // make NULL
+    ListNode *head = malloc(sizeof(struct listNode));   // Actual list head
+    head->tStudent = NULL;                              // make NULL
+    head->next = NULL;                                  // make NULL
 
-    studentCountP = &studentCount;
     optionP = &option;
 
     // Bad file open
@@ -118,11 +117,15 @@ int checkA_Num(char *A_Num) {
 
     int pos = 0;
     int size = 0;
+
     while (*(A_Num + pos) != '\0') {
+        // Starts with A
         if (pos == 0 && *(A_Num + pos) != 'A')
             return 0;
-        else if (1) {
-            
+        // Digits are numbers
+        else if (pos != 0 
+            && !(*(A_Num + pos) >= '0' && *(A_Num + pos) <= '9')) {
+            return 0;   
         }
 
         size++;
@@ -133,6 +136,122 @@ int checkA_Num(char *A_Num) {
         return 1;
     else 
         return 0;
+}
+
+/**
+ * checkName:           Checks if a name contains only alphabetical characters and dashes.
+ * param *name:         name we are checking
+*/
+int checkName(char *name) {
+    if(name == NULL)
+        return 0;
+    
+    int pos = 0;
+
+    while (*(name + pos) != '\0') {
+        // character is alphabetical OR a dash
+        if (!((*(name + pos) >= 'a' && *(name + pos) <= 'z') 
+            || (*(name + pos) >= 'A' && *(name + pos) <= 'Z')
+            || *(name + pos) == '-'))
+            return 0;    
+
+        pos++;
+    }
+
+    return 1;
+}
+
+void placeStudent(int cmp, ListNode *itr, ListNode *prev, ListNode *newNode, ListNode *head, ListNode *oldNext) {
+    if (cmp > 0) {
+        itr->next = newNode;
+        newNode->next = oldNext;
+
+    } else if (cmp < 0) {
+        if (prev == NULL) {
+            head->next = newNode;
+            newNode->next = itr;
+        } else {
+            prev->next = newNode;
+            newNode->next = itr;
+        }
+    }
+}
+
+/**
+ * insertStudent:       inserts a student into his position in the list.
+ * param *head:         the head of the list
+ * param *student:      student that we are going to put into the list
+*/
+void insertStudent(ListNode *head, Student *newStudent) {
+    ListNode *newNode = malloc(sizeof(struct listNode));
+    
+    if (newNode == NULL)
+        printErrorExit();
+
+    newNode->next = NULL;
+    newNode->tStudent = newStudent;
+
+    if (head->next == NULL) {
+        head->next = newNode;
+        return;
+    }
+
+    ListNode *itr = head->next;
+    ListNode *prev = NULL;
+
+    while (itr != NULL) {
+        ListNode *oldNext;
+        if (itr->next == NULL) {
+            oldNext = NULL;
+        } else {
+            oldNext = itr->next;
+        }
+
+        // Compare last name
+        int cmp = strcmp(itr->tStudent->fname, newStudent->fname);
+        if (cmp != 0) {
+            printf("different last name\n");
+            placeStudent(cmp, itr, prev, newNode, head, oldNext);
+
+
+        // Compare first name
+        } else {
+            int cmp = strcmp(itr->tStudent->fname, newStudent->fname);
+            if (cmp != 0) {
+                printf("different first name\n");
+                placeStudent(cmp, itr, prev, newNode, head, oldNext);
+
+            // Compare aNum
+            } else {
+                int cmp = strcmp(itr->tStudent->aNum, newStudent->aNum);
+                if (cmp != 0) {
+                    printf("different anum\n");
+                    placeStudent(cmp, itr, prev, newNode, head, oldNext);
+                
+                // Compare midterm
+                } else {
+                    int cmp = itr->tStudent->midterm - newStudent->midterm;
+                    if (cmp != 0) {
+                        printf("different midterm\n");
+                        placeStudent(cmp, itr, prev, newNode, head, oldNext);
+
+                    // Compare final
+                    } else {
+                        int cmp = itr->tStudent->final - newStudent->final;
+                        if (cmp != 0) {
+                            printf("different final\n");
+                            placeStudent(cmp, itr, prev, newNode, head, oldNext);
+
+                        // Student not inserted otherwise, they are a duplicate
+                        }
+                    }
+                }
+            }
+        }
+
+        prev = itr;
+        itr = oldNext;
+    }
 }
 
 /**
@@ -159,25 +278,13 @@ void innitList(ListNode *head, int *option) {
 
     if (!(*option >= 1 && *option <= 5))             // Valid option range.
         printErrorExit();
-
-    printf("Option: %d\n", *option);
     
     fseek(in, 2, SEEK_SET);                          // set buffer to the beginning of student list.
-    ListNode *prev = NULL;                           // innit the prev pointer.
     int track = 0;
 
     while (fgets(buff, 100, in) != NULL && track < ncount) {
-        ListNode *newNode = malloc(sizeof(struct listNode));   // Create a new node
-
-        if (newNode == NULL)                                   // Check if struct creation was successful
-            printErrorExit();
-        if (track == 0)
-            head->next = newNode;
-        if (prev != NULL)
-            prev->next = newNode;
-
-        char *fNameT = malloc(15 * sizeof(char));
         char *lNameT = malloc(15 * sizeof(char));
+        char *fNameT = malloc(15 * sizeof(char));
         char *aNumT = malloc(15 * sizeof(char));
         int mGradeT = 0;
         int fGradeT = 0;
@@ -186,13 +293,17 @@ void innitList(ListNode *head, int *option) {
             printErrorExit();
 
         int stat = sscanf(buff, "%s %s %s %d %d\n", 
-            (char*)fNameT, (char*)lNameT, (char*)aNumT, &mGradeT, &fGradeT);    // Keep track of success
+            (char*)lNameT, (char*)fNameT, (char*)aNumT, &mGradeT, &fGradeT);    // Keep track of success
 
         if (stat != 5)
             printErrorExit();                                                   // There must be 5 things in each line
 
-        if (checkGrade(mGradeT) && checkGrade(fGradeT) && checkA_Num(aNumT)) {
+        if (checkGrade(mGradeT) && checkGrade(fGradeT) 
+            && checkA_Num(aNumT) && checkName(fNameT) 
+            && checkName(lNameT)) {
+
             Student *newStudent = malloc(sizeof(struct student));
+
             if (newStudent == NULL)
                 printErrorExit();
 
@@ -202,16 +313,14 @@ void innitList(ListNode *head, int *option) {
             newStudent->midterm = mGradeT;
             newStudent->final = fGradeT;
             newStudent->average = (mGradeT + fGradeT) / 2;
-            newNode->tStudent = newStudent;
-            
-            prev = newNode;
+            insertStudent(head, newStudent);
+
         } else {
             printErrorExit();
         }
 
         track++;
     }
-    printf("endread\n");
 }
 
 /**
@@ -220,7 +329,6 @@ void innitList(ListNode *head, int *option) {
 */
 void basicPrint(ListNode *head) {
     ListNode *itr = head->next;
-    printf("here\n");
 
     while(itr != NULL) {
         Student *cStudent = itr->tStudent;
