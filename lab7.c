@@ -26,27 +26,12 @@ void printErrorExit();
 void innitList(ListNode *head, int *option);
 void basicPrint(ListNode *head);
 void insertStudent(ListNode *head, Student *newStudent);
+void freeList(ListNode *head);
+void exportList(int *option, ListNode *head);
 
 int checkName(char *name);
 int checkA_Num(char *aNum);
 int checkGrade(int grade);
-
-/**
- * TODO
- * - Input error cases
- * |---- missing name (first or last) X
- * |---- name with non-alphanumeric characters (excluding dash and hiphen) X
- * |---- missing a_num OR incorrect a_num format (function) X
- * |---- missing either midterm or final score X
- * |---- grade not in range (0 --> 100) X
- * - Insert function, insert by last name > first name > a_num > midterm > final
- * - Export function, account for option logic
- * |---- 1 option
- * |---- 2 option
- * |---- 3 option
- * |---- 4 option
- * |---- 5 option
-*/
 
 /**
  * main:            Drives the program.
@@ -76,8 +61,12 @@ int main(int argc, char* argv[]){
     if (in == NULL || out == NULL)
         return 1;
 
+
     innitList(head, optionP);
-    basicPrint(head);               // basic test print function
+    // basicPrint(head);               // basic test print function
+    exportList(optionP, head);
+    
+    freeList(head);
 
     return 0;
 }
@@ -161,20 +150,24 @@ int checkName(char *name) {
     return 1;
 }
 
-void placeStudent(int cmp, ListNode *itr, ListNode *prev, ListNode *newNode, ListNode *head, ListNode *oldNext) {
-    if (cmp > 0) {
-        itr->next = newNode;
-        newNode->next = oldNext;
+/**
+ * compareStudents:         compares two students to see what order they should fall in.
+ * param *a:                first student
+ * param *b:                second student
+*/
+int compareStudents(Student *a, Student *b) {
+    int lastNameComparison = strcmp(a->lname, b->lname);
+    if (lastNameComparison != 0) return lastNameComparison;
 
-    } else if (cmp < 0) {
-        if (prev == NULL) {
-            head->next = newNode;
-            newNode->next = itr;
-        } else {
-            prev->next = newNode;
-            newNode->next = itr;
-        }
-    }
+    int firstNameComparison = strcmp(a->fname, b->fname);
+    if (firstNameComparison != 0) return firstNameComparison;
+
+    int studentNumberComparison = strcmp(a->aNum, b->aNum);
+    if (studentNumberComparison != 0) return studentNumberComparison;
+
+    if (a->midterm != b->midterm) return a->midterm - b->midterm;
+
+    return a->final - b->final;
 }
 
 /**
@@ -183,74 +176,24 @@ void placeStudent(int cmp, ListNode *itr, ListNode *prev, ListNode *newNode, Lis
  * param *student:      student that we are going to put into the list
 */
 void insertStudent(ListNode *head, Student *newStudent) {
-    ListNode *newNode = malloc(sizeof(struct listNode));
+    ListNode* newNode = malloc(sizeof(struct listNode));
     
     if (newNode == NULL)
         printErrorExit();
 
-    newNode->next = NULL;
     newNode->tStudent = newStudent;
+    newNode->next = NULL;
 
-    if (head->next == NULL) {
+    if (head->next == NULL || compareStudents(newStudent, head->next->tStudent) < 0) {
+        newNode->next = head->next;
         head->next = newNode;
-        return;
-    }
-
-    ListNode *itr = head->next;
-    ListNode *prev = NULL;
-
-    while (itr != NULL) {
-        ListNode *oldNext;
-        if (itr->next == NULL) {
-            oldNext = NULL;
-        } else {
-            oldNext = itr->next;
+    } else {
+        ListNode* current = head;
+        while (current->next != NULL && compareStudents(newStudent, current->next->tStudent) > 0) {
+            current = current->next;
         }
-
-        // Compare last name
-        int cmp = strcmp(itr->tStudent->fname, newStudent->fname);
-        if (cmp != 0) {
-            printf("different last name\n");
-            placeStudent(cmp, itr, prev, newNode, head, oldNext);
-
-
-        // Compare first name
-        } else {
-            int cmp = strcmp(itr->tStudent->fname, newStudent->fname);
-            if (cmp != 0) {
-                printf("different first name\n");
-                placeStudent(cmp, itr, prev, newNode, head, oldNext);
-
-            // Compare aNum
-            } else {
-                int cmp = strcmp(itr->tStudent->aNum, newStudent->aNum);
-                if (cmp != 0) {
-                    printf("different anum\n");
-                    placeStudent(cmp, itr, prev, newNode, head, oldNext);
-                
-                // Compare midterm
-                } else {
-                    int cmp = itr->tStudent->midterm - newStudent->midterm;
-                    if (cmp != 0) {
-                        printf("different midterm\n");
-                        placeStudent(cmp, itr, prev, newNode, head, oldNext);
-
-                    // Compare final
-                    } else {
-                        int cmp = itr->tStudent->final - newStudent->final;
-                        if (cmp != 0) {
-                            printf("different final\n");
-                            placeStudent(cmp, itr, prev, newNode, head, oldNext);
-
-                        // Student not inserted otherwise, they are a duplicate
-                        }
-                    }
-                }
-            }
-        }
-
-        prev = itr;
-        itr = oldNext;
+        newNode->next = current->next;
+        current->next = newNode;
     }
 }
 
@@ -324,6 +267,21 @@ void innitList(ListNode *head, int *option) {
 }
 
 /**
+ * freeList:                Frees memory used by the linkedlist.
+ * param *head:             the start of the list   
+*/
+void freeList(ListNode *head) {
+    ListNode *itr = head->next;
+
+    while (itr != NULL) {
+        ListNode *temp = itr->next;
+        free(itr->tStudent);
+        free(itr);
+        itr = temp;
+    }
+}
+
+/**
  * basicPrint:              basic print function, prints all student information. For testing purposes.
  * param *head:             the start of the list
 */
@@ -337,5 +295,55 @@ void basicPrint(ListNode *head) {
             cStudent->midterm, cStudent->final, cStudent->average);
 
         itr = itr->next;
+    }
+}
+
+/**
+ * filterAndPut:            writes list node contents if they satisfy filter.
+ * param siftLower:         the lower bound filter we will apply to the list contents (inclusive)
+ * param siftUpper:         the uper bound filter we will apply to the list contents (exclusive)
+ * param *head:             the start of the list
+*/
+void filterAndPut(int siftLower, int siftUpper, ListNode *head) {
+    if (out != NULL) {
+        ListNode *itr = head->next;
+        if (itr == NULL)
+            return;
+
+        while (itr != NULL) {
+            Student *cS = itr->tStudent;
+            if (cS->average >= siftLower && cS->average < siftUpper)
+                fprintf(out, "%s %s %s %d %d\n", 
+                    cS->lname, cS->fname, cS->aNum, cS->midterm, cS->final);
+            itr = itr->next;
+        }
+
+    } else {
+        printErrorExit();
+    }
+}
+
+/**
+ * exportList:              Exports list contents to output file based of option.
+ * param option:            denotes the type of export
+ * param *head:             the start of the list
+*/
+void exportList(int *option, ListNode *head) {
+    switch(*option) {
+        case 1:
+            filterAndPut(90, 100, head);
+            break;
+        case 2:
+            filterAndPut(80, 90, head);
+            break;
+        case 3:
+            filterAndPut(70, 80, head);
+            break;
+        case 4:
+            filterAndPut(60, 70, head);
+            break;
+        case 5:
+            filterAndPut(0, 60, head);
+            break;
     }
 }
