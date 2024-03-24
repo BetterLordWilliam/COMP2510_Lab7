@@ -162,8 +162,8 @@ int compareStudents(Student *a, Student *b) {
     int firstNameComparison = strcmp(a->fname, b->fname);
     if (firstNameComparison != 0) return firstNameComparison;
 
-    int studentNumberComparison = strcmp(a->aNum, b->aNum);
-    if (studentNumberComparison != 0) return studentNumberComparison;
+    int aNumComparison = strcmp(a->aNum, b->aNum);
+    if (aNumComparison != 0) return aNumComparison;
 
     if (a->midterm != b->midterm) return a->midterm - b->midterm;
 
